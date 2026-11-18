@@ -184,9 +184,11 @@ function addMessage(role, text, extraClass) {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const message = input.value.trim();
-  if (!message) return;
+  // Allow empty messages only when the pipeline is waiting for an answer.
+  // An empty message cannot start a new job submission.
+  if (!message && !currentThreadId) return;
 
-  addMessage("user", message);
+  addMessage("user", message || "(No answer provided)");
   input.value = "";
   sendBtn.disabled = true;
 
@@ -206,7 +208,7 @@ form.addEventListener("submit", async (e) => {
 
     currentThreadId = data.thread_id;
     if (!data.done) {
-      input.placeholder = "Your answer...";
+      input.placeholder = "Type your answer, or leave blank to skip...";
     } else {
       input.placeholder = "Paste a job description...";
     }

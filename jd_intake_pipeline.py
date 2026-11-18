@@ -126,25 +126,58 @@ def route_after_parse(state: JDState) -> str:
     return "request_missing_info" if state["missing_fields"] else "check_duplicate"
 
 
+# def request_missing_info(state: JDState) -> dict:
+#     """Pauses the graph (interrupt) and asks a human for ONE missing field at a time.
+
+#     The reply is taken verbatim as that field's value - no re-parsing needed, so
+#     this doesn't loop back through `parse_jd` at all. No side effects happen before
+#     `interrupt()`: on resume, the node re-runs from the top, so anything before the
+#     interrupt call would otherwise execute twice.
+#     """
+#     field = state["missing_fields"][0]
+#     reply = interrupt({"field": field, "question": f"What is the {field}?"})
+
+#     parsed = {**state["parsed"], field: str(reply).strip()}
+#     return {
+#         "parsed": parsed,
+#         "missing_fields": state["missing_fields"][1:],
+#         "missing_info_attempts": state.get("missing_info_attempts", 0) + 1,
+#         "log": _log(state, f"request_missing_info: got '{field}' from the recruiter"),
+#     }
 def request_missing_info(state: JDState) -> dict:
-    """Pauses the graph (interrupt) and asks a human for ONE missing field at a time.
+    """Pauses the graph and asks a human for ONE missing field at a time."""
 
-    The reply is taken verbatim as that field's value - no re-parsing needed, so
-    this doesn't loop back through `parse_jd` at all. No side effects happen before
-    `interrupt()`: on resume, the node re-runs from the top, so anything before the
-    interrupt call would otherwise execute twice.
-    """
     field = state["missing_fields"][0]
-    reply = interrupt({"field": field, "question": f"What is the {field}?"})
 
-    parsed = {**state["parsed"], field: str(reply).strip()}
+    reply = interrupt({
+        "field": field,
+        "question": f"What is the {field}?"
+    })
+
+    answer = str(reply).strip()
+
+    parsed = dict(state["parsed"])
+    missing_fields = list(state["missing_fields"])
+
+    if answer:
+        parsed[field] = answer
+        missing_fields.pop(0)
+
+        log_message = (
+            f"request_missing_info: received answer for {field}"
+        )
+    else:
+        log_message = (
+            f"request_missing_info: blank answer for {field}, "
+            f"attempt {state.get('missing_info_attempts', 0) + 1}"
+        )
+
     return {
         "parsed": parsed,
-        "missing_fields": state["missing_fields"][1:],
+        "missing_fields": missing_fields,
         "missing_info_attempts": state.get("missing_info_attempts", 0) + 1,
-        "log": _log(state, f"request_missing_info: got '{field}' from the recruiter"),
+        "log": _log(state, log_message)
     }
-
 
 def route_after_request_missing_info(state: JDState) -> str:
     """Plain Python: still fields left to ask, or have we already asked too many times?"""
